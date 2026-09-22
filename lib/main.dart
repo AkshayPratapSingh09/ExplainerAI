@@ -6,8 +6,10 @@ import 'package:provider/provider.dart';
 import 'core/audio/app_audio_controller.dart';
 import 'core/storage/app_storage.dart';
 import 'core/theme/app_theme.dart';
+import 'core/tts/native_tts_service.dart';
 import 'presentation/screens/chat_screen.dart';
 import 'presentation/screens/settings_screen.dart';
+import 'presentation/screens/tts_test_pane_screen.dart';
 import 'providers/chat_provider.dart';
 import 'providers/settings_provider.dart';
 
@@ -56,6 +58,9 @@ Future<void> main() async {
         ChangeNotifierProvider<AppAudioController>(
           create: (_) => AppAudioController(),
         ),
+        ChangeNotifierProvider<NativeTtsService>(
+          create: (_) => NativeTtsService(),
+        ),
       ],
       child: const ExplainerAIApp(),
     ),
@@ -79,6 +84,7 @@ class ExplainerAIApp extends StatelessWidget {
       routes: {
         '/': (context) => const ChatScreen(),
         '/settings': (context) => const SettingsScreen(),
+        '/test_pane': (context) => const TtsTestPaneScreen(),
       },
     );
   }

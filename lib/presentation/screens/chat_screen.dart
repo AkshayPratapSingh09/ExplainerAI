@@ -114,6 +114,11 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.science_outlined),
+            tooltip: 'TTS Voice Lab',
+            onPressed: () => Navigator.pushNamed(context, '/test_pane'),
+          ),
+          IconButton(
             icon: const Icon(Icons.add_circle_outline_rounded),
             tooltip: 'New Explanation',
             onPressed: () => chat.createNewSession(),

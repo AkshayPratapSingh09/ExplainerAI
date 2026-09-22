@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
+enum TtsTierType { native, googleCloud, sarvam }
+
 class SarvamSpeaker {
   final String id;
   final String name;
@@ -30,7 +32,9 @@ class SarvamLanguage {
 }
 
 class AppSettings {
-  String apiKey;
+  String apiKey; // Sarvam API key
+  String googleCloudApiKey; // Google Cloud API key
+  TtsTierType defaultTtsTier; // native, googleCloud, sarvam
   String defaultChatModel;
   String defaultTtsModel;
   String defaultSpeaker;
@@ -43,19 +47,37 @@ class AppSettings {
   bool backgroundAudioEnabled;
   String customSystemPrompt;
 
+  // Google Cloud TTS preferences
+  String googleCloudVoiceName;
+  double googleCloudRate;
+  double googleCloudPitch;
+
+  // On-Device Native preferences
+  String nativeLocale; // 'en-IN' or 'hi-IN'
+  double nativeSpeechRate;
+  double nativePitch;
+
   AppSettings({
     this.apiKey = '',
+    this.googleCloudApiKey = '',
+    this.defaultTtsTier = TtsTierType.native, // Default to ₹0 Free on-device tier
     this.defaultChatModel = 'sarvam-105b-conversations',
     this.defaultTtsModel = 'bulbul:v3',
     this.defaultSpeaker = 'shubh',
     this.defaultLanguageCode = 'hi-IN',
     this.defaultPace = 1.0,
     this.speechSampleRate = 22050,
-    this.isAudioAutoGenerate = true,
-    this.explanationStyle = 'conversational', // 'conversational', 'simplified', 'storyteller', 'executive'
+    this.isAudioAutoGenerate = false, // On-demand by default to save cost
+    this.explanationStyle = 'conversational',
     this.themeMode = ThemeMode.dark,
     this.backgroundAudioEnabled = true,
     this.customSystemPrompt = '',
+    this.googleCloudVoiceName = 'hi-IN-Chirp3-HD-Algenib',
+    this.googleCloudRate = 1.0,
+    this.googleCloudPitch = 0.0,
+    this.nativeLocale = 'en-IN',
+    this.nativeSpeechRate = 0.5,
+    this.nativePitch = 1.0,
   });
 
   static const List<SarvamSpeaker> availableSpeakers = [
@@ -144,6 +166,8 @@ class AppSettings {
   Map<String, dynamic> toMap() {
     return {
       'apiKey': apiKey,
+      'googleCloudApiKey': googleCloudApiKey,
+      'defaultTtsTier': defaultTtsTier.name,
       'defaultChatModel': defaultChatModel,
       'defaultTtsModel': defaultTtsModel,
       'defaultSpeaker': defaultSpeaker,
@@ -155,19 +179,30 @@ class AppSettings {
       'themeMode': themeMode.name,
       'backgroundAudioEnabled': backgroundAudioEnabled,
       'customSystemPrompt': customSystemPrompt,
+      'googleCloudVoiceName': googleCloudVoiceName,
+      'googleCloudRate': googleCloudRate,
+      'googleCloudPitch': googleCloudPitch,
+      'nativeLocale': nativeLocale,
+      'nativeSpeechRate': nativeSpeechRate,
+      'nativePitch': nativePitch,
     };
   }
 
   factory AppSettings.fromMap(Map<String, dynamic> map) {
     return AppSettings(
       apiKey: map['apiKey'] ?? '',
+      googleCloudApiKey: map['googleCloudApiKey'] ?? '',
+      defaultTtsTier: TtsTierType.values.firstWhere(
+        (e) => e.name == map['defaultTtsTier'],
+        orElse: () => TtsTierType.native,
+      ),
       defaultChatModel: map['defaultChatModel'] ?? 'sarvam-105b-conversations',
       defaultTtsModel: map['defaultTtsModel'] ?? 'bulbul:v3',
       defaultSpeaker: map['defaultSpeaker'] ?? 'shubh',
       defaultLanguageCode: map['defaultLanguageCode'] ?? 'hi-IN',
       defaultPace: (map['defaultPace'] as num?)?.toDouble() ?? 1.0,
       speechSampleRate: (map['speechSampleRate'] as num?)?.toInt() ?? 22050,
-      isAudioAutoGenerate: map['isAudioAutoGenerate'] ?? true,
+      isAudioAutoGenerate: map['isAudioAutoGenerate'] ?? false,
       explanationStyle: map['explanationStyle'] ?? 'conversational',
       themeMode: ThemeMode.values.firstWhere(
         (e) => e.name == map['themeMode'],
@@ -175,6 +210,12 @@ class AppSettings {
       ),
       backgroundAudioEnabled: map['backgroundAudioEnabled'] ?? true,
       customSystemPrompt: map['customSystemPrompt'] ?? '',
+      googleCloudVoiceName: map['googleCloudVoiceName'] ?? 'hi-IN-Chirp3-HD-Algenib',
+      googleCloudRate: (map['googleCloudRate'] as num?)?.toDouble() ?? 1.0,
+      googleCloudPitch: (map['googleCloudPitch'] as num?)?.toDouble() ?? 0.0,
+      nativeLocale: map['nativeLocale'] ?? 'en-IN',
+      nativeSpeechRate: (map['nativeSpeechRate'] as num?)?.toDouble() ?? 0.5,
+      nativePitch: (map['nativePitch'] as num?)?.toDouble() ?? 1.0,
     );
   }
 

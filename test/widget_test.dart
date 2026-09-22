@@ -1,9 +1,61 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:explainer_ai/core/api/google_cloud_tts_client.dart';
 import 'package:explainer_ai/core/utils/text_sanitizer.dart';
+import 'package:explainer_ai/core/utils/tts_normalizer.dart';
 import 'package:explainer_ai/models/chat_message.dart';
 import 'package:explainer_ai/models/chat_session.dart';
 
 void main() {
+  group('TtsNormalizer Tests', () {
+    test('Normalizes Indian currency (₹1,00,000 -> one lakh rupees)', () {
+      const input = 'Agar aap ₹1,00,000 invest karte ho toh 5 saal baad ₹2,50,000 milenge.';
+      final normalized = TtsNormalizer.normalizeForNativeTts(input);
+
+      expect(normalized.contains('1 lakh rupees'), isTrue);
+      expect(normalized.contains('2.50 lakh rupees'), isTrue);
+    });
+
+    test('Expands financial acronyms (YTM, CAGR, NAV, ETF)', () {
+      const input = 'Is bond ka YTM 11.25% hai aur ETF ka CAGR 15% hai.';
+      final normalized = TtsNormalizer.normalizeForNativeTts(input);
+
+      expect(normalized.contains('yield to maturity'), isTrue);
+      expect(normalized.contains('C A G R'), isTrue);
+      expect(normalized.contains('E T F'), isTrue);
+      expect(normalized.contains('11.25 percent'), isTrue);
+      expect(normalized.contains('15 percent'), isTrue);
+    });
+
+    test('Cleans tables and citations for speech synthesis', () {
+      const input = '''
+| Plan | Price |
+|---|---|
+| Pro | ₹499 |
+Refer to Section 80C [1].
+''';
+      final normalized = TtsNormalizer.normalizeForNativeTts(input);
+
+      expect(normalized.contains('[1]'), isFalse);
+      expect(normalized.contains('|---|---|'), isFalse);
+      expect(normalized.contains('499 rupees'), isTrue);
+    });
+  });
+
+  group('GoogleCloudTtsClient Catalog Tests', () {
+    test('Contains Chirp3-HD, Neural2, and Wavenet voices for hi-IN and en-IN', () {
+      final voices = GoogleCloudTtsClient.availableVoices;
+      expect(voices.isNotEmpty, isTrue);
+
+      final hasChirp = voices.any((v) => v.name == 'hi-IN-Chirp3-HD-Algenib');
+      final hasNeural2 = voices.any((v) => v.name == 'hi-IN-Neural2-B');
+      final hasWavenet = voices.any((v) => v.name == 'en-IN-Wavenet-A');
+
+      expect(hasChirp, isTrue);
+      expect(hasNeural2, isTrue);
+      expect(hasWavenet, isTrue);
+    });
+  });
+
   group('TextSanitizer Tests', () {
     test('Cleans markdown formatting, citations and symbols correctly', () {
       const rawText = '''
@@ -18,16 +70,11 @@ Here is **important** data with a citation [1] and [citation needed].
 
       final sanitized = TextSanitizer.sanitizeForAudioSpeech(rawText);
 
-      // Verify citations removed
       expect(sanitized.contains('[1]'), isFalse);
       expect(sanitized.contains('[citation needed]'), isFalse);
-
-      // Verify currency & percentage converted
       expect(sanitized.contains('500 rupees'), isTrue);
       expect(sanitized.contains('25 percent'), isTrue);
       expect(sanitized.contains('without'), isTrue);
-
-      // Verify table dividers and bold markers removed
       expect(sanitized.contains('|---|---|'), isFalse);
       expect(sanitized.contains('**important**'), isFalse);
       expect(sanitized.contains('important'), isTrue);

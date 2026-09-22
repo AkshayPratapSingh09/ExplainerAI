@@ -53,7 +53,16 @@ class HistoryDrawer extends StatelessWidget {
                   ),
                   const Spacer(),
                   IconButton(
+                    icon: const Icon(Icons.science_outlined, size: 20),
+                    tooltip: 'TTS Voice Lab',
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/test_pane');
+                    },
+                  ),
+                  IconButton(
                     icon: const Icon(Icons.settings_outlined, size: 20),
+                    tooltip: 'Settings',
                     onPressed: () {
                       Navigator.pop(context);
                       Navigator.pushNamed(context, '/settings');

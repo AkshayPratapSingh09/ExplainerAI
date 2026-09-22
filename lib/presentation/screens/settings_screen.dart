@@ -5,6 +5,7 @@ import '../../core/audio/app_audio_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_settings.dart';
 import '../../providers/settings_provider.dart';
+import '../widgets/google_cloud_guide_sheet.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,8 +16,10 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _apiKeyController;
+  late TextEditingController _gcloudApiKeyController;
   late TextEditingController _customPromptController;
   bool _obscureApiKey = true;
+  bool _obscureGcloudKey = true;
   bool _isTestingVoice = false;
 
   @override
@@ -24,12 +27,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     final settings = context.read<SettingsProvider>();
     _apiKeyController = TextEditingController(text: settings.apiKey);
+    _gcloudApiKeyController = TextEditingController(text: settings.googleCloudApiKey);
     _customPromptController = TextEditingController(text: settings.customSystemPrompt);
   }
 
   @override
   void dispose() {
     _apiKeyController.dispose();
+    _gcloudApiKeyController.dispose();
     _customPromptController.dispose();
     super.dispose();
   }
@@ -105,6 +110,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(
         title: const Text('Settings & Configuration', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.science_outlined),
+            tooltip: 'Open Voice Lab',
+            onPressed: () => Navigator.pushNamed(context, '/test_pane'),
+          ),
           TextButton(
             onPressed: () => settings.resetToDefaults(),
             child: const Text('Reset', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
@@ -114,7 +124,199 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
-          // 1. API Key Card
+          // 0. Banner: Open TTS Lab
+          InkWell(
+            onTap: () => Navigator.pushNamed(context, '/test_pane'),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.primary, AppColors.accentPurple],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withAlpha(60),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.science_rounded, color: Colors.white, size: 24),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'TTS Voice Lab & Test Pane',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14.5),
+                        ),
+                        Text(
+                          'Test On-Device, Google Cloud & Sarvam side-by-side',
+                          style: TextStyle(color: Colors.white70, fontSize: 11.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 16),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 1. Default TTS Engine Tier
+          _buildCard(
+            isDark: isDark,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionTitle('Default Voice Playback Tier', Icons.layers_rounded, isDark),
+                const SizedBox(height: 6),
+                Text(
+                  'Choose default audio tier for explanations to optimize cost and quality.',
+                  style: TextStyle(fontSize: 12, color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary),
+                ),
+                const SizedBox(height: 12),
+
+                // Option 1: Native Free
+                _buildTierOption(
+                  title: '🎧 Standard Voice (₹0 Free • On-Device)',
+                  subtitle: 'Uses Android Google/Samsung TTS with finance acronym normalization',
+                  tier: TtsTierType.native,
+                  currentTier: settings.defaultTtsTier,
+                  badgeColor: AppColors.success,
+                  badgeText: '₹0 / Unlimited',
+                  isDark: isDark,
+                  onSelect: () => settings.updateTtsTier(TtsTierType.native),
+                ),
+                const SizedBox(height: 8),
+
+                // Option 2: Google Cloud
+                _buildTierOption(
+                  title: '☁️ Google Cloud TTS (Chirp3-HD / Neural2)',
+                  subtitle: 'Includes 1M-4M free chars/month. High naturalness & generative voices',
+                  tier: TtsTierType.googleCloud,
+                  currentTier: settings.defaultTtsTier,
+                  badgeColor: Colors.blue,
+                  badgeText: '1M-4M Free/mo',
+                  isDark: isDark,
+                  onSelect: () => settings.updateTtsTier(TtsTierType.googleCloud),
+                ),
+                const SizedBox(height: 8),
+
+                // Option 3: Sarvam Bulbul
+                _buildTierOption(
+                  title: '✨ Natural Hinglish (Sarvam Bulbul HD)',
+                  subtitle: 'SOTA human-like conversational Indian voices (~₹3 / 1,000 chars)',
+                  tier: TtsTierType.sarvam,
+                  currentTier: settings.defaultTtsTier,
+                  badgeColor: AppColors.primary,
+                  badgeText: 'Premium HD',
+                  isDark: isDark,
+                  onSelect: () => settings.updateTtsTier(TtsTierType.sarvam),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 2. Google Cloud API Key Card
+          _buildCard(
+            isDark: isDark,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildSectionTitle('Google Cloud TTS API Key', Icons.cloud_queue_rounded, isDark),
+                    TextButton.icon(
+                      onPressed: () => GoogleCloudGuideSheet.show(context),
+                      icon: const Icon(Icons.help_outline_rounded, size: 14, color: AppColors.primaryLight),
+                      label: const Text('Key Guide', style: TextStyle(fontSize: 11.5, color: AppColors.primaryLight)),
+                      style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Enables Chirp3-HD, Neural2, WaveNet, and Standard voices for Indian English & Hindi.',
+                  style: TextStyle(fontSize: 12, color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _gcloudApiKeyController,
+                  obscureText: _obscureGcloudKey,
+                  style: const TextStyle(fontSize: 13.5, fontFamily: 'monospace'),
+                  decoration: InputDecoration(
+                    hintText: 'Enter Google Cloud API Key (starts with AIza...)...',
+                    filled: true,
+                    fillColor: isDark ? AppColors.darkInputBg : Colors.grey.shade100,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
+                      ),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureGcloudKey ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                        size: 18,
+                      ),
+                      onPressed: () => setState(() => _obscureGcloudKey = !_obscureGcloudKey),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton.icon(
+                  icon: settings.isValidatingGcloudKey
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Icon(settings.isGcloudKeyValid == true ? Icons.check_circle_rounded : Icons.sync_rounded, size: 16),
+                  label: Text(
+                    settings.isValidatingGcloudKey
+                        ? 'Verifying...'
+                        : (settings.isGcloudKeyValid == true ? 'Verified & Saved' : 'Save & Verify Key'),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: settings.isGcloudKeyValid == true ? AppColors.success : Colors.blue.shade700,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    minimumSize: const Size(double.infinity, 44),
+                  ),
+                  onPressed: settings.isValidatingGcloudKey
+                      ? null
+                      : () async {
+                          final key = _gcloudApiKeyController.text.trim();
+                          await settings.updateGoogleCloudApiKey(key);
+                          final valid = await settings.testGoogleCloudApiKey(key);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                valid
+                                    ? '✅ Google Cloud API Key verified successfully!'
+                                    : '⚠️ Key verification failed. Please check your key.',
+                              ),
+                              behavior: SnackBarBehavior.floating,
+                              backgroundColor: valid ? AppColors.success : AppColors.error,
+                            ),
+                          );
+                        },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 3. Sarvam AI API Key Card
           _buildCard(
             isDark: isDark,
             child: Column(
@@ -123,10 +325,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildSectionTitle('Sarvam AI API Subscription Key', Icons.vpn_key_rounded, isDark),
                 const SizedBox(height: 6),
                 Text(
-                  'Your API key is stored securely on your device and sent directly to api.sarvam.ai.',
+                  'Used for sarvam-105b Chat Completions & Bulbul v3 Text-to-Speech.',
                   style: TextStyle(fontSize: 12, color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 TextField(
                   controller: _apiKeyController,
                   obscureText: _obscureApiKey,
@@ -151,63 +353,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        icon: settings.isValidatingKey
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : Icon(
-                                settings.isKeyValid == true ? Icons.check_circle_rounded : Icons.sync_rounded,
-                                size: 16,
+                const SizedBox(height: 10),
+                ElevatedButton.icon(
+                  icon: settings.isValidatingKey
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Icon(settings.isKeyValid == true ? Icons.check_circle_rounded : Icons.sync_rounded, size: 16),
+                  label: Text(
+                    settings.isValidatingKey
+                        ? 'Verifying...'
+                        : (settings.isKeyValid == true ? 'Verified & Saved' : 'Save & Verify Key'),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: settings.isKeyValid == true ? AppColors.success : AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    minimumSize: const Size(double.infinity, 44),
+                  ),
+                  onPressed: settings.isValidatingKey
+                      ? null
+                      : () async {
+                          final key = _apiKeyController.text.trim();
+                          await settings.updateApiKey(key);
+                          final valid = await settings.testApiKey(key);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                valid
+                                    ? '✅ Sarvam API Key verified successfully!'
+                                    : '⚠️ Key verification failed. Please check your key.',
                               ),
-                        label: Text(
-                          settings.isValidatingKey
-                              ? 'Verifying...'
-                              : (settings.isKeyValid == true ? 'Verified & Saved' : 'Save & Verify Key'),
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: settings.isKeyValid == true ? AppColors.success : AppColors.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        onPressed: settings.isValidatingKey
-                            ? null
-                            : () async {
-                                final key = _apiKeyController.text.trim();
-                                await settings.updateApiKey(key);
-                                final valid = await settings.testApiKey(key);
-                                if (!context.mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      valid
-                                          ? '✅ Sarvam API Key verified successfully!'
-                                          : '⚠️ Key verification failed. Please check your key.',
-                                    ),
-                                    behavior: SnackBarBehavior.floating,
-                                    backgroundColor: valid ? AppColors.success : AppColors.error,
-                                  ),
-                                );
-                              },
-                      ),
-                    ),
-                  ],
+                              behavior: SnackBarBehavior.floating,
+                              backgroundColor: valid ? AppColors.success : AppColors.error,
+                            ),
+                          );
+                        },
                 ),
               ],
             ),
           ),
-
           const SizedBox(height: 16),
 
-          // 2. Default Models Card
+          // 4. Default Models & Voices
           _buildCard(
             isDark: isDark,
             child: Column(
@@ -216,7 +405,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildSectionTitle('Default AI Models', Icons.psychology_rounded, isDark),
                 const SizedBox(height: 14),
 
-                // Chat Model
                 _buildDropdownRow(
                   label: 'Default Chat Model',
                   value: settings.defaultChatModel,
@@ -226,10 +414,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                   isDark: isDark,
                 ),
-
                 const SizedBox(height: 14),
 
-                // TTS Model
                 _buildDropdownRow(
                   label: 'Default TTS Model',
                   value: settings.defaultTtsModel,
@@ -242,10 +428,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
-
           const SizedBox(height: 16),
 
-          // 3. Default Voice & Pace Card
+          // 5. Sarvam Voice Speaker & Pace Card
           _buildCard(
             isDark: isDark,
             child: Column(
@@ -254,16 +439,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildSectionTitle('Voice Speaker & Audio Pace', Icons.record_voice_over_rounded, isDark),
-                    // Test voice button
+                    _buildSectionTitle('Sarvam Bulbul Voice & Pace', Icons.record_voice_over_rounded, isDark),
                     TextButton.icon(
                       onPressed: _isTestingVoice ? null : _testVoiceSample,
                       icon: _isTestingVoice
-                          ? const SizedBox(
-                              width: 12,
-                              height: 12,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
-                            )
+                          ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
                           : const Icon(Icons.play_circle_outline_rounded, size: 16, color: AppColors.primaryLight),
                       label: Text(
                         _isTestingVoice ? 'Generating...' : 'Preview Voice',
@@ -278,7 +458,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // Speaker selection
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -301,10 +480,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   }).toList(),
                 ),
-
                 const SizedBox(height: 16),
 
-                // Pace Slider
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -331,26 +508,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   inactiveColor: isDark ? AppColors.darkCardBorder : Colors.grey.shade300,
                   onChanged: (val) => settings.updatePace(val),
                 ),
-
-                const SizedBox(height: 8),
-
-                // Language
-                _buildDropdownRow(
-                  label: 'Default Language Code',
-                  value: settings.defaultLanguageCode,
-                  items: AppSettings.supportedLanguages.map((l) => l.code).toList(),
-                  onChanged: (val) {
-                    if (val != null) settings.updateLanguageCode(val);
-                  },
-                  isDark: isDark,
-                ),
               ],
             ),
           ),
-
           const SizedBox(height: 16),
 
-          // 4. Playback & Theme Preferences
+          // 6. Playback & Theme Preferences
           _buildCard(
             isDark: isDark,
             child: Column(
@@ -359,20 +522,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildSectionTitle('App Preferences', Icons.tune_rounded, isDark),
                 const SizedBox(height: 12),
 
-                // Auto-generate audio switch
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                   title: const Text('Auto-Generate Audio', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Automatically synthesize Bulbul audio for explanations', style: TextStyle(fontSize: 11.5)),
+                  subtitle: const Text('Automatically synthesize audio (Turn OFF for on-demand ₹0 listening)', style: TextStyle(fontSize: 11.5)),
                   value: settings.isAudioAutoGenerate,
                   activeTrackColor: AppColors.primary,
                   onChanged: (val) => settings.updateAudioAutoGenerate(val),
                 ),
-
                 const Divider(height: 12),
 
-                // Background audio switch
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   dense: true,
@@ -382,10 +542,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   activeTrackColor: AppColors.audioWave,
                   onChanged: (val) => settings.updateBackgroundAudio(val),
                 ),
-
                 const Divider(height: 12),
 
-                // Theme Mode selector
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -417,46 +575,86 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
-
-          const SizedBox(height: 16),
-
-          // 5. Custom Explainer System Prompt Editor
-          _buildCard(
-            isDark: isDark,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionTitle('Custom Explainer System Prompt', Icons.edit_note_rounded, isDark),
-                const SizedBox(height: 6),
-                Text(
-                  'Leave blank to use the default high-performance Hinglish spoken tutor prompt.',
-                  style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _customPromptController,
-                  maxLines: 4,
-                  style: const TextStyle(fontSize: 12.5),
-                  decoration: InputDecoration(
-                    hintText: 'Optional custom system instructions...',
-                    filled: true,
-                    fillColor: isDark ? AppColors.darkInputBg : Colors.grey.shade100,
-                    contentPadding: const EdgeInsets.all(12),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
-                      ),
-                    ),
-                  ),
-                  onChanged: (val) => settings.updateCustomSystemPrompt(val),
-                ),
-              ],
-            ),
-          ),
-
           const SizedBox(height: 24),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTierOption({
+    required String title,
+    required String subtitle,
+    required TtsTierType tier,
+    required TtsTierType currentTier,
+    required Color badgeColor,
+    required String badgeText,
+    required bool isDark,
+    required VoidCallback onSelect,
+  }) {
+    final isSelected = tier == currentTier;
+    return InkWell(
+      onTap: onSelect,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected ? badgeColor.withAlpha(25) : (isDark ? AppColors.darkInputBg : Colors.grey.shade100),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? badgeColor : (isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.check_circle_rounded : Icons.radio_button_off_rounded,
+              size: 18,
+              color: isSelected ? badgeColor : AppColors.textMuted,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? AppColors.textDarkPrimary : AppColors.textLightPrimary,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: badgeColor.withAlpha(30),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          badgeText,
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: badgeColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

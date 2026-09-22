@@ -168,6 +168,20 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateMessageAudio(String messageId, String audioPath, {String? speaker}) async {
+    if (_activeSession == null) return;
+    final idx = _activeSession!.messages.indexWhere((m) => m.id == messageId);
+    if (idx != -1) {
+      _activeSession!.messages[idx] = _activeSession!.messages[idx].copyWith(
+        audioPath: audioPath,
+        speakerUsed: speaker,
+      );
+      _activeSession!.updatedAt = DateTime.now();
+      await _storage.saveSessions(_sessions);
+      notifyListeners();
+    }
+  }
+
   /// Sends a prompt/text to be processed and spoken
   Future<void> sendMessage({
     required String text,
